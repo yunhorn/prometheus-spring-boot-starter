@@ -51,7 +51,7 @@ public class PrometheusMetricsPushConfig {
             return;
         }
         //TODO may BUG, send same data twice
-        log.info("***begin.push:{}|{}|{}",metricsName,values.size(), tagList.hashCode());
+        log.debug("***begin.push:{}|{}|{}",metricsName,values.size(), tagList.hashCode());
 
         String name = metricsName.replaceAll("\\.","_");
 
