@@ -1,7 +1,6 @@
 package com.smartoilets.metrics;
 
 import com.google.common.collect.Lists;
-import com.smartoilets.common.util.JSONUtils;
 import io.micrometer.core.instrument.*;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
@@ -50,8 +49,7 @@ public class PrometheusMetricsPushConfig {
         if(values.isEmpty()){
             return;
         }
-        //TODO may BUG, send same data twice
-        log.debug("***begin.push:{}|{}|{}",metricsName,values.size(), tagList.hashCode());
+        log.debug("***begin.push:{}|{}",metricsName,values.size());
 
         String name = metricsName.replaceAll("\\.","_");
 
@@ -89,7 +87,6 @@ public class PrometheusMetricsPushConfig {
             byte[] compress = Snappy.compress(build.toByteArray());
             HttpHeaders headers = new HttpHeaders();
             HttpEntity<?> entity = new HttpEntity<>(compress, headers);
-//            log.debug("begin write!!"+name+" "+value);
             ResponseEntity<String> responseEntity = restTemplate.exchange(pushHost+pushPath, HttpMethod.POST, entity, String.class);
             log.debug("resp:"+name+" "+instant.atZone(ZoneOffset.ofHours(8))+" "+responseEntity.getStatusCodeValue());
         } catch (Exception e) {
@@ -156,8 +153,7 @@ public class PrometheusMetricsPushConfig {
             meterRegistry.getMeters().stream().forEach(m->{
                 Meter.Id id = m.getId();
                 String name = id.getName().replaceAll("\\.","_");
-//                log.info("begin metrics!!"+name);
-//                log.info("type:"+id.getType());
+                log.debug("begin metrics!!{}|{}",name,id.getType());
                 Optional<Counter> counter = Optional.ofNullable(meterRegistry.find(id.getName()).counter());
                 Collection<Gauge> gauges = meterRegistry.find(id.getName()).gauges();
                 List<Double> values = Lists.newArrayList();
@@ -165,15 +161,14 @@ public class PrometheusMetricsPushConfig {
                 gauges.forEach(g->{
                     values.add(g.value());
                     tags.add(g.getId().getTags());
-//                    beginPush(instant,id.getName(),g.value(),g.getId().getTags());
-//                    log.info("gaug.data:{}|{}|{}",id.getName(),g.getId().getTags(),g.value());
                 });
                 beginPush(instant,id.getName(),values,tags);
-//                log.info("gauges.size:{}",gauges.size());
                 if(!counter.isPresent()){
                     return;
                 }
-                beginPush(instant,id.getName(),counter.get().count(),id.getTags());
+                if(values.isEmpty()) {
+                    beginPush(instant, id.getName(), counter.get().count(), id.getTags());
+                }
             });
         }, 5000, intervalInMillis, TimeUnit.MILLISECONDS);
     }
