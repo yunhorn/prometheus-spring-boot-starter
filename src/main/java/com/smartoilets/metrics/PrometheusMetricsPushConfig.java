@@ -3,7 +3,6 @@ package com.smartoilets.metrics;
 import com.google.common.collect.Lists;
 import io.micrometer.core.instrument.*;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpEntity;
@@ -135,7 +134,7 @@ public class PrometheusMetricsPushConfig {
 
     @PostConstruct
     public void initialize() {
-        if(StringUtils.isBlank(pushHost)){
+        if(pushHost==null || pushHost.length()==0){
             log.warn("not.prometheus.push.host");
             return;
         }
