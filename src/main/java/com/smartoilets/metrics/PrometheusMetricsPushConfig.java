@@ -2,6 +2,7 @@ package com.smartoilets.metrics;
 
 import com.google.common.collect.Lists;
 import io.micrometer.core.instrument.*;
+import io.micrometer.core.instrument.util.JsonUtils;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -93,6 +94,53 @@ public class PrometheusMetricsPushConfig {
         }
     }
 
+    public Types.TimeSeries fillTimeSeries(Instant instant,String metricsName,double value,List<Tag> tagList){
+        List<Types.Label> labels = Lists.newArrayList();
+        tagList.forEach(tag->{
+            Types.Label label = Types.Label.newBuilder()
+                    .setName(tag.getKey())
+                    .setValue(tag.getValue())
+                    .build();
+            labels.add(label);
+        });
+        String name = metricsName.replaceAll("\\.","_");
+//        log.debug("fillTimeSeries.metrics:{}|{}",name, tagList);
+
+        Types.Label nameLabel = Types.Label.newBuilder()
+                .setName("__name__")
+                .setValue(name)
+                .build();
+        labels.add(nameLabel);
+
+        Types.TimeSeries timeSeries = Types.TimeSeries.newBuilder()
+                .addAllLabels(labels)
+                .addSamples(Types.Sample.newBuilder()
+                        .setTimestamp(instant.toEpochMilli())
+                        .setValue(Double.valueOf(value).floatValue())
+                        .build())
+                .build();
+        return timeSeries;
+    }
+
+    public void pushTimeSeries(List<Types.TimeSeries> timeSeries){
+
+        Remote.WriteRequest build = Remote.WriteRequest.newBuilder()
+                .addAllTimeseries(timeSeries)
+                .build();
+
+        try {
+            byte[] compress = Snappy.compress(build.toByteArray());
+
+            HttpHeaders headers = new HttpHeaders();
+            HttpEntity<?> entity = new HttpEntity<>(compress, headers);
+            ResponseEntity<String> responseEntity = restTemplate.exchange(pushHost+pushPath, HttpMethod.POST, entity, String.class);
+            log.debug("resp:{}|{}",compress.length,responseEntity.getStatusCodeValue());
+
+        } catch (Exception e) {
+            log.error("metrics.push.failed!",e);
+        }
+    }
+
     public void beginPush(Instant instant,String metricsName,double value,List<Tag> tagList){
 
         List<Types.Label> labels = Lists.newArrayList();
@@ -104,12 +152,14 @@ public class PrometheusMetricsPushConfig {
             labels.add(label);
         });
         String name = metricsName.replaceAll("\\.","_");
+        log.info("begin.push.metrics:{}|{}",name, tagList);
 
         Types.Label nameLabel = Types.Label.newBuilder()
                 .setName("__name__")
                 .setValue(name)
                 .build();
         labels.add(nameLabel);
+
         Remote.WriteRequest build = Remote.WriteRequest.newBuilder()
                 .addTimeseries(Types.TimeSeries.newBuilder()
                         .addAllLabels(labels)
@@ -149,6 +199,7 @@ public class PrometheusMetricsPushConfig {
         scheduledExecutorService.scheduleAtFixedRate(() -> {
             Instant instant = LocalDateTime.now().toInstant(ZoneOffset.of("+8"));
 //            log.info("metrics.size:"+meterRegistry.getMeters().size());
+            List<Types.TimeSeries> timeSeries = Lists.newArrayList();
             meterRegistry.getMeters().stream().forEach(m->{
                 Meter.Id id = m.getId();
                 String name = id.getName().replaceAll("\\.","_");
@@ -160,15 +211,20 @@ public class PrometheusMetricsPushConfig {
                 gauges.forEach(g->{
                     values.add(g.value());
                     tags.add(g.getId().getTags());
+
+                    timeSeries.add(fillTimeSeries(instant, g.getId().getName(), g.value(), g.getId().getTags()));
+
                 });
-                beginPush(instant,id.getName(),values,tags);
+//                beginPush(instant,id.getName(),values,tags);
                 if(!counter.isPresent()){
                     return;
                 }
                 if(values.isEmpty()) {
-                    beginPush(instant, id.getName(), counter.get().count(), id.getTags());
+                    timeSeries.add(fillTimeSeries(instant, id.getName(), counter.get().count(), id.getTags()));
+//                    beginPush(instant, id.getName(), counter.get().count(), id.getTags());
                 }
             });
+            pushTimeSeries(timeSeries);
         }, 5000, intervalInMillis, TimeUnit.MILLISECONDS);
     }
 
