@@ -1,4 +1,4 @@
-package com.smartoilets.metrics;
+package com.yunhorn.core.metrics;
 
 import com.google.common.collect.Lists;
 import io.micrometer.core.instrument.*;
