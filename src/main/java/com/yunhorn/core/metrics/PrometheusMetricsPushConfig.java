@@ -2,6 +2,7 @@ package com.yunhorn.core.metrics;
 
 import com.google.common.collect.Lists;
 import io.micrometer.core.instrument.*;
+import io.micrometer.core.instrument.search.Search;
 import io.micrometer.core.instrument.util.JsonUtils;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -174,7 +175,6 @@ public class PrometheusMetricsPushConfig {
             byte[] compress = Snappy.compress(build.toByteArray());
             HttpHeaders headers = new HttpHeaders();
             HttpEntity<?> entity = new HttpEntity<>(compress, headers);
-//            log.debug("begin write!!"+name+" "+value);
             ResponseEntity<String> responseEntity = restTemplate.exchange(pushHost+pushPath, HttpMethod.POST, entity, String.class);
             log.debug("resp:"+name+" "+instant.atZone(ZoneOffset.ofHours(8))+" "+responseEntity.getStatusCodeValue());
         } catch (Exception e) {
@@ -198,24 +198,29 @@ public class PrometheusMetricsPushConfig {
 
         scheduledExecutorService.scheduleAtFixedRate(() -> {
             Instant instant = LocalDateTime.now().toInstant(ZoneOffset.of("+8"));
-//            log.info("metrics.size:"+meterRegistry.getMeters().size());
             List<Types.TimeSeries> timeSeries = Lists.newArrayList();
             meterRegistry.getMeters().stream().forEach(m->{
                 Meter.Id id = m.getId();
                 String name = id.getName().replaceAll("\\.","_");
                 log.debug("begin metrics!!{}|{}",name,id.getType());
+
+                Search search = meterRegistry.find(id.getName());
+
                 Optional<Counter> counter = Optional.ofNullable(meterRegistry.find(id.getName()).counter());
                 Collection<Gauge> gauges = meterRegistry.find(id.getName()).gauges();
+                DistributionSummary summary = search.summary();
+                if(summary!=null){
+                    timeSeries.add(fillTimeSeries(instant, summary.getId().getName()+"_mean", summary.mean(), id.getTags()));
+                    timeSeries.add(fillTimeSeries(instant, summary.getId().getName()+"_count", summary.count(), id.getTags()));
+                    timeSeries.add(fillTimeSeries(instant, summary.getId().getName()+"_max", summary.max(), id.getTags()));
+                    timeSeries.add(fillTimeSeries(instant, summary.getId().getName()+"_total_amount", summary.totalAmount(), id.getTags()));
+                }
+
                 List<Double> values = Lists.newArrayList();
-                List<List<Tag>> tags = Lists.newArrayList();
                 gauges.forEach(g->{
                     values.add(g.value());
-                    tags.add(g.getId().getTags());
-
                     timeSeries.add(fillTimeSeries(instant, g.getId().getName(), g.value(), g.getId().getTags()));
-
                 });
-//                beginPush(instant,id.getName(),values,tags);
                 if(!counter.isPresent()){
                     return;
                 }
