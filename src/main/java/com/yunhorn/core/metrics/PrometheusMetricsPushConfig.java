@@ -136,7 +136,6 @@ public class PrometheusMetricsPushConfig {
             HttpEntity<?> entity = new HttpEntity<>(compress, headers);
             ResponseEntity<String> responseEntity = restTemplate.exchange(pushHost+pushPath, HttpMethod.POST, entity, String.class);
             log.debug("resp:{}|{}",compress.length,responseEntity.getStatusCodeValue());
-
         } catch (Exception e) {
             log.error("metrics.push.failed!",e);
         }
@@ -229,7 +228,10 @@ public class PrometheusMetricsPushConfig {
 //                    beginPush(instant, id.getName(), counter.get().count(), id.getTags());
                 }
             });
-            pushTimeSeries(timeSeries);
+
+            List<List<Types.TimeSeries>> subTimeSeries = Lists.partition(timeSeries, 10);
+            subTimeSeries.forEach(s->pushTimeSeries(s));
+
         }, 5000, intervalInMillis, TimeUnit.MILLISECONDS);
     }
 
