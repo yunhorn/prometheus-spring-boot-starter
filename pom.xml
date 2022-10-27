@@ -189,4 +189,13 @@
         </repository>
     </distributionManagement>
 
+    <profiles>
+        <profile>
+            <id>deploy</id>
+            <properties>
+                <profileActive>deploy</profileActive>
+            </properties>
+        </profile>
+    </profiles>
+
 </project>
