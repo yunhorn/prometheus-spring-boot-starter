@@ -30,9 +30,9 @@
          <protobuf-maven-plugin.version>0.6.1</protobuf-maven-plugin.version>
         <protoc3.version>3.16.1</protoc3.version>
 <!--        <logback.version>1.2.3</logback.version>-->
-        <pulsar.version>2.10.0</pulsar.version>
         <junit-jupiter.version>5.7.2</junit-jupiter.version>
         <protobuf.version>3.19.6</protobuf.version>
+        <pulsar.version>2.10.1</pulsar.version>
     </properties>
 
     <dependencies>
@@ -107,7 +107,7 @@
         <dependency>
             <groupId>com.google.protobuf</groupId>
             <artifactId>protobuf-java</artifactId>
-            <version>3.11.4</version>
+            <version>3.16.3</version>
             <scope>compile</scope>
         </dependency>
         <dependency>
