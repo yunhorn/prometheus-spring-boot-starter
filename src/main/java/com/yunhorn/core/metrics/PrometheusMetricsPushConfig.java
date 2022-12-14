@@ -226,7 +226,6 @@ public class PrometheusMetricsPushConfig {
                 }
                 if(values.isEmpty()) {
                     timeSeries.add(fillTimeSeries(instant, id.getName(), counter.get().count(), id.getTags()));
-//                    beginPush(instant, id.getName(), counter.get().count(), id.getTags());
                 }
             });
             pushTimeSeries(timeSeries);
